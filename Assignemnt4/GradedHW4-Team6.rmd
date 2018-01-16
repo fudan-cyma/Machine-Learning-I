@@ -1,0 +1,304 @@
+---
+title: 'ISOM 674 Machine Learning I: Graded Assignment IV'
+output:
+  html_document: default
+  pdf_document: default
+---
+## MSBA Group 6
+Nikhil Chalakkal  
+Chengyao Ma  
+Ryan Chi  
+
+## Pre Processing
+As part of preprocessing, we do the following steps:
+
+* Add the libraries needed for this assignment.
+* Set the Working Directory for the files.
+
+```{R, echo = T, eval = T, warning = F, message = F}
+library(glmnet)
+library(ggplot2)
+setwd(dir = "C:\\Users\\Nikhil Chalakkal\\Dropbox\\Emory MSBA\\Courses\\ISOM 674\\6.0 Assignments\\Graded Assignment IV")
+```
+
+Once this is done, we input the data that needs to be used for this assignment (**spambasedata-Orig.csv**). Following the input of the data, we examine the file to get an understanding of the schema. 
+
+```{R, echo = T, eval = T, warning = F, message = F}
+DataOrig <- read.table("spambasedata-Orig.csv", sep = ",", header = T, stringsAsFactors = F)
+dim(DataOrig)
+```
+
+We also load the ordering file for the data to be used for this assignment (**SpamdataPermutation.RData**) which is an RData file, and then reorder the initial data to ensure that the correct order is followed. Once the reordering is done, we split the file into tre training and validation data sets - we take a 60% training and 40% validation data cut, and take the first 60% of the ordered file as training data.
+
+```{R, echo = T, eval = T, warning = F, message = F}
+load(file="SpamdataPermutation.RData")
+DataOrig <- DataOrig[ord,]
+TrainInd <- ceiling(nrow(DataOrig) * 0.6)
+TrainData <- DataOrig[1:TrainInd, ]
+ValData <- DataOrig[(TrainInd + 1):nrow(DataOrig), ]
+```
+
+Once all the data is loaded, we also load thepredefined functions to be used for this assignment: a function to calculate Log Likelihood (**LLfn**) and a function to generate the Area Under the Curve (**Get_AUC**).
+
+```{R, echo = T, eval = T, warning = F, message = F}
+LLfn <- function(PHat, YVal) {
+  tmp <- rep(NA, length(PHat))
+  tmp[YVal == 1] <- log(PHat[YVal == 1])
+  tmp[YVal == 0] <- log(1 - PHat[YVal == 0])
+  sum(tmp)
+}
+
+Get_AUC <- function(Pvec,Cvec,Plot=T,Add=F) {
+  NHam <- sum(Cvec==0)
+  NSpam <- sum(Cvec==1)
+  PvecS <- unique(sort(Pvec))
+  x <- rep(NA,length(PvecS))
+  y <- rep(NA,length(PvecS))
+  for(i in 1:length(PvecS)) {
+    x[i] <- sum(Pvec>=PvecS[i]&Cvec==0)/NHam
+    y[i] <- sum(Pvec>=PvecS[i]&Cvec==1)/NSpam
+  }
+  x <- c(0,x,1)
+  y <- c(0,y,1)
+  ord <- order(x)
+  x <- x[ord]
+  y <- y[ord]
+  
+  AUC <- sum((x[2:length(x)]-x[1:(length(x)-1)])*(y[2:length(y)]+y[1:(length(y)-1)])/2)
+  return(AUC)
+}
+```
+
+## Question I
+
+**Using the spam data with the original continuous feature (i.e., the un-coded data), perform ridge regression using logistic regression (family="binomial"). Use AUC (calculated on the validation data) as the performance criterion. Make a plot of AUC vs complexity. You will have to experiment to find a grid of ??? values that will give you a useful plot.**
+
+## Answer
+
+We first examine the data.
+
+```{R, echo = T, eval = T, warning = F, message = F}
+dim(TrainData)
+colnames(TrainData)
+```
+
+We seen, we have 58 columns, the last of which is the column giving the result of whether an email was classified as spam or not, and all the other columns being the list of all the parameters of the email which were used to determine whether they were spam or not. This data is uncoded - meaning each parameter has a value of 0 or 1 depending on whether that parameter was true or not.
+
+We first subset the data - both training data set and validation data set - into X and Y sets. The Y set is the actual result of whether the email was actually spam or not, and the X set being the list of all the parameters of the email which could be used to determine whether it was spam or not.
+
+```{R, echo = T, eval = T, warning = F, message = F}
+TrainX = as.matrix(TrainData[,-58])
+TrainY = TrainData[,58]
+ValX = as.matrix(ValData[,-58])
+ValY = ValData[,58]
+```
+
+Once done, we define a grid of values for the parameter *lambda* which would be used to scale the loss function used by the ridge regression. This grid was determined using trial and error, to see which values of *lambda* gave us a good plot. 
+
+The final values for the grid of *lambda* values are 1000 sequential numbers between 10 raised to -7 and 10 raised to 7.
+
+```{R, echo = T, eval = T, warning = F, message = F}
+grid <- 10^seq(-7, 7, length = 1000)
+head(grid)
+```
+
+Now, as per the requirement of the question, we define a logistic regression model with ridge regression for the loss function. The model is trained using the training set defined earlier, which was split into X and Y values. The parameters fed into the model are that it's from the **Binomial** family (for logistic regression) and has an *aplha* value of 1, for ridge regression.
+
+Once the model has been defined and trained, it is then run on the validation data (X values only) to give a predicted result (**yhat_ridge**). Note that for ridge regression, the *lambda* values that were passed into the model was the grid of values previously defined.
+
+```{R, echo = T, eval = T, warning = F, message = F}
+fit_ridge = glmnet(TrainX, TrainY, alpha  = 0, family = 'binomial', lambda = grid)
+yhat_ridge = predict(fit_ridge, newx = ValX, type = 'response')
+```
+
+The question asks us to plot AUC against the complexity. Complexity for a classifier is defined as the number of parameters that were taken as a part of the model. 
+
+To determine the AUC (Area Under the Curve for the classifier, the predicted result is then fed into the user defined function defined earlier (**Get_AUC**), along with the actual results of the validation data (Y values).
+
+```{R, echo = T, eval = T, warning = F, message = F}
+auc_value_ridge = apply(yhat_ridge, 2, FUN = Get_AUC, ValY)
+```
+
+The number of parameters used by the model is extracted from the model itself, by using the number of coefficients which are generated. Given the parameters used will all have non zero coefficients, we count the number of non zero coefficients for each of the 1000 values of *lambda* and can use that number as the total number of parameters used, which is a surrogate for complexity of the model. 
+
+```{R, echo = T, eval = T, warning = F, message = F}
+coef_ridge = coef(fit_ridge)
+num_parameter_ridge = apply(as.matrix(coef_ridge[-1,]), 2, function(c) length(c > 0))
+```
+
+Note that the first row (the intercept term) is removed from the calculation - this is because the intercept term is always non zero, but is not associated with a parameter. 
+
+We then populate the above results (the AUC, the number of non zero parameters, and the *lambda* value) in a separate dataframe. A sample of this dataframe is shown below:
+
+```{R, echo = T, eval = T, warning = F, message = F}
+result_ridge = as.data.frame(cbind(auc_value_ridge, num_parameter_ridge, grid))
+head(result_ridge)
+```
+
+As asked by the question, we then plot the complexity against the AUC.  
+
+```{R, echo = T, eval = T, warning = F, message = F}
+ggplot(result_ridge) + geom_line(aes(x = num_parameter_ridge, y = auc_value_ridge))
+```
+
+However, as seen above, the graph turns out to be a vertical line. This is because Ridge Regressions does not zero out coefficients, and ends up with all the coefficients in the model, or none at all. The total number of parameters is always 57. The details of the maximum AUC and number of parameters at maximum AUC is given below, along with a horizontal line showing the position of the maximum AUC.
+
+```{R, echo = F, eval = T, warning = F, message = F}
+cat("Maximum AUC Value:", result_ridge[which.max(auc_value_ridge),1])
+cat("Number of Paramters at Maximum AUC:", result_ridge[which.max(auc_value_ridge),2])
+ggplot(result_ridge) + geom_line(aes(x = num_parameter_ridge, y = auc_value_ridge)) + 
+  geom_hline(yintercept = result_ridge[which.max(auc_value_ridge),1])
+```
+
+## Question II & Question III
+
+**Repeat the previous question using lasso instead of ridge regression. For the lasso regression, make the plots of AUC against the number of included variables (i.e., variables with non-zero coefficients). Since none of the coefficients is likely to be exactly 0 numerically, you will have to think about what this means and how to make the plot.**
+
+## Answer
+
+The same process as before is carried out, but instead of using ridge regression (*alpha* = 0), we use lasso regression (*alpha* = 1) in the model created. The values of *lambda* passed to the model are kept the same - the grid of values previously defined. The model is trained using the training set defined earlier, which was split into X and Y values.
+
+```{R, echo = T, eval = T, warning = F, message = F}
+fit_lasso = glmnet(TrainX, TrainY, alpha  = 1, family = 'binomial', lambda = grid)
+yhat_lasso = predict(fit_lasso, newx = ValX, type = 'response')
+```
+
+Once the model has been defined and trained, it is then run on the validation data (X values only) to give a predicted result (**yhat_lasso**).
+
+As was done before, to determine the AUC (Area Under the Curve for the classifier, the predicted result is then fed into the user defined function defined earlier (**Get_AUC**), along with the actual results of the validation data (Y values). The number of parameters are extracted using the coefficients generated by the model, and then the overall results are populated into a separate dataframe.
+
+```{R, echo = T, eval = T, warning = F, message = F}
+auc_value_lasso = apply(yhat_lasso, 2, FUN = Get_AUC, ValY)
+coef_lasso = coef(fit_lasso)
+num_parameter_lasso = apply(as.matrix(coef_lasso[-1,]),2,function(c) sum(c != 0))
+result_lasso = as.data.frame(cbind(auc_value_lasso, num_parameter_lasso, grid))
+head(result_lasso)
+```
+
+We then plot the complexity against the AUC. We see that this is different from the plot for the ridge regression because the lasso loss function starts with zero parameters (complete loss) and an AUC of 0.5 (equal to chance) and keeps adding parameters which in turn increase the AUC. Hence, the number of parameters keeps increasing, and accordingly the AUC also keeps going up until it tapers off after reaching 90%.
+
+The details of the maximum AUC is given below, and the it's position on the graph is shown by adding a horizontal and a vertical line into the plot.
+
+```{R, echo = F, eval = T, warning = F, message = F}
+cat("Maximum AUC Value:", result_lasso[which.max(auc_value_lasso),1])
+cat("Number of Paramters at Maximum AUC:", result_lasso[which.max(auc_value_lasso),2])
+ggplot(result_lasso) + geom_line(aes(x = num_parameter_lasso, y = auc_value_lasso)) +
+  geom_vline(xintercept = result_lasso[which.max(auc_value_lasso),2]) +
+  geom_hline(yintercept = result_lasso[which.max(auc_value_lasso),1])
+```
+
+## Question IV
+
+**Are you getting the behavior you expect? Why or why not? In answering this question, address both the results of the ridge regression and the lasso regression.**
+
+## Answer
+
+Yes, the results are as expected. As detailed out before, the plot of the complexity against the AUC for ridge regression turns out to be a vertical line because Ridge Regressions does not zero out coefficients, and ends up with all the coefficients in the model, or none at all. The total number of parameters is always 57.
+
+Hence, each value of *lambda* will give a value of AUC for all 57 parameters, and the AUC depends only on the regularization parameter *lambda*. This is seen from the plot of *lambda* against the AUC for ridge regression.
+
+```{R, echo = F, eval = T, warning = F, message = F}
+ggplot(result_ridge) + geom_line(aes(x = grid, y = auc_value_ridge))
+```
+
+We transform the *lambda* values to log form to get a better chart. The details of the maximum AUC and number of parameters at maximum AUC is given below, and the position of the maximum AUC on the graph is shown by adding a horizontal and a vertical line into the plot.
+
+```{R, echo = F, eval = T, warning = F, message = F}
+cat("Maximum AUC Value:", result_ridge[which.max(auc_value_ridge),1])
+cat("Number of Paramters at Maximum AUC:", result_ridge[which.max(auc_value_ridge),2])
+cat("lambda value at Maximum AUC:", result_ridge[which.max(auc_value_ridge),3])
+ggplot(result_ridge) + geom_line(aes(x = log(grid), y = auc_value_ridge)) + 
+  geom_vline(xintercept = log(result_ridge[which.max(auc_value_ridge),3])) +
+  geom_hline(yintercept = result_ridge[which.max(auc_value_ridge),1])
+```
+
+The plot of the complexity against the AUC for lasso regression is different from the plot for the ridge regression because the lasso loss function starts with zero parameters (complete loss) and an AUC of 0.5 (equal to chance). It then keeps adding parameters which in turn increase the AUC, and hence, the number of parameters keeps increasing, and accordingly the AUC also keeps going up until it tapers off after reaching 90%. This can also be more clearly seen a plot of AUC against the *lambda* values.
+
+```{R, echo = F, eval = T, warning = F, message = F}
+cat("Maximum AUC Value:", result_lasso[which.max(auc_value_lasso),1])
+cat("Number of Paramters at Maximum AUC:", result_lasso[which.max(auc_value_lasso),2])
+cat("lambda value at Maximum AUC:", result_lasso[which.max(auc_value_lasso),3])
+ggplot(result_lasso) + geom_line(aes(x = log(grid), y = auc_value_lasso))  + 
+  geom_vline(xintercept = log(result_lasso[which.max(auc_value_lasso),3])) +
+  geom_hline(yintercept = result_lasso[which.max(auc_value_lasso),1])
+```
+
+## Question V
+
+**To see if you get the same behaviors using a difference criteria that the AUC, repeat (1)-(4) above using the log-likelihood computed on the validation data as the performance criterion.**
+
+## Answer
+
+To complete this requirement, the exact same process is followed as was done in the earlier questions. However, instead of using the **Get_AUC** user defined function to evaluate performance, we use the **LLfn** which evaluates the performance using a log likelihood.
+
+The details are given below:
+
+### Ridge Regression using Log Likelihood
+
+```{R, echo = T, eval = T, warning = F, message = F}
+fit_ridge_ll = glmnet(TrainX, TrainY, alpha  = 0, family = 'binomial', lambda = grid)
+yhat_ridge_ll = predict(fit_ridge_ll, newx = ValX, type = 'response')
+ll_value_ridge = apply(yhat_ridge_ll, 2, FUN = LLfn, ValY)
+coef_ridge_ll = coef(fit_ridge_ll)
+num_parameter_ridge_ll = apply(as.matrix(coef_ridge_ll[-1,]), 2, function(c) sum(c != 0))
+result_ridge_ll = as.data.frame(cbind(ll_value_ridge, num_parameter_ridge_ll, grid))
+head(result_ridge_ll)
+```
+
+The plots are generated as well, for the evaluation.
+
+```{R, echo = F, eval = T, warning = F, message = F}
+cat("Maximum Log Likelihood Value:", result_ridge_ll[which.max(ll_value_ridge),1])
+cat("Number of Paramters at Maximum AUC:", result_ridge_ll[which.max(ll_value_ridge),2])
+cat("lambda value at Maximum AUC:", result_ridge_ll[which.max(ll_value_ridge),3])
+
+ggplot(result_ridge_ll) + geom_line(aes(x = num_parameter_ridge_ll, y = ll_value_ridge)) + 
+  geom_vline(xintercept = result_ridge_ll[which.max(ll_value_ridge),2]) +
+  geom_hline(yintercept = result_ridge_ll[which.max(ll_value_ridge),1])
+
+```
+
+As expected, for ridge regression, the plot of number of parameters against the loss function is a straight vertical line, because all the parameters are considered, and none of the coefficients is reduced to zero. However, the performance (as measured by the log likelihood function on the y-axis) varies with the values of *lambda* as seen below.
+
+```{R, echo = F, eval = T, warning = F, message = F}
+cat("Maximum Log Likelihood Value:", result_ridge_ll[which.max(ll_value_ridge),1])
+cat("Number of Paramters at Maximum AUC:", result_ridge_ll[which.max(ll_value_ridge),2])
+cat("lambda value at Maximum AUC:", result_ridge_ll[which.max(ll_value_ridge),3])
+ggplot(result_ridge_ll) + geom_line(aes(x = log(grid), y = ll_value_ridge))  + 
+  geom_vline(xintercept = log(result_ridge_ll[which.max(ll_value_ridge),3])) +
+  geom_hline(yintercept = result_ridge_ll[which.max(ll_value_ridge),1])
+```
+
+### Lasso Regression using Log Likelihood
+
+```{R, echo = T, eval = T, warning = F, message = F}
+fit_lasso_ll = glmnet(TrainX, TrainY, alpha  = 1, family = 'binomial', lambda = grid)
+yhat_lasso_ll = predict(fit_lasso_ll, newx = ValX, type = 'response')
+ll_value_lasso = apply(yhat_lasso_ll, 2, FUN = LLfn, ValY)
+coef_lasso_ll = coef(fit_lasso_ll)
+num_parameter_lasso_ll = apply(as.matrix(coef_lasso_ll[-1,]),2,function(c) sum(c != 0))
+result_lasso_ll = as.data.frame(cbind(ll_value_lasso, num_parameter_lasso_ll, grid))
+head(result_lasso_ll)
+```
+
+The plots are generated as well, for the evaluation.
+
+```{R, echo = F, eval = T, warning = F, message = F}
+cat("Maximum Log Likelihood Value:", result_lasso_ll[which.max(ll_value_lasso),1])
+cat("Number of Paramters at Maximum AUC:", result_lasso_ll[which.max(ll_value_lasso),2])
+ggplot(result_lasso_ll) + geom_line(aes(x = num_parameter_lasso_ll, y = ll_value_lasso)) + 
+  geom_vline(xintercept = result_lasso_ll[which.max(ll_value_lasso),2]) +
+  geom_hline(yintercept = result_lasso_ll[which.max(ll_value_lasso),1])
+
+```
+
+As expected, for lasso regression, the plot of the complexity against the AUC is different from the plot for the ridge regression because the lasso loss function starts with zero parameters (complete loss) and an AUC of 0.5 (equal to chance). It then keeps adding parameters which in turn increase the AUC, and hence, the number of parameters keeps increasing, and accordingly the AUC also keeps going up until it tapers off after reaching 90%. This can also be more clearly seen a plot of AUC against the *lambda* values.
+
+```{R, echo = F, eval = T, warning = F, message = F}
+cat("Maximum Log Likelihood Value:", result_lasso_ll[which.max(ll_value_lasso),1])
+cat("Number of Paramters at Maximum AUC:", result_lasso_ll[which.max(ll_value_lasso),2])
+cat("lambda value at Maximum AUC:", result_lasso_ll[which.max(ll_value_lasso),3])
+ggplot(result_lasso_ll) + geom_line(aes(x = log(grid), y = ll_value_lasso))  + 
+  geom_vline(xintercept = log(result_lasso_ll[which.max(ll_value_lasso),3])) +
+  geom_hline(yintercept = result_lasso_ll[which.max(ll_value_lasso),1])
+```
