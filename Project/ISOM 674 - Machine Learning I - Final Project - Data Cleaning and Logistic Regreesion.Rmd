@@ -1,0 +1,512 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+rm(list = ls(all = TRUE))
+require(data.table)
+require(dplyr)
+require(e1071)
+require(dummies)
+require(speedglm)
+```
+
+
+
+Recode factor data. 
+```{r}
+setwd('c:/Users/cyma9/Dropbox/IntroML1/PJ/')
+set.seed(42)
+
+
+
+
+raw = fread('ProjectTrainingData.csv')
+
+r0 = top_n(arrange(count(raw,site_id),desc(n)),20)
+
+r1 = top_n(arrange(count(raw,site_domain),desc(n)),20)
+
+r2 = top_n(arrange(count(raw,site_category),desc(n)),20)
+
+r3 = top_n(arrange(count(raw,app_id),desc(n)),20)
+
+r4 = top_n(arrange(count(raw,app_domain),desc(n)),20)
+
+r5 = top_n(arrange(count(raw,app_category),desc(n)),20)
+r6 = top_n(arrange(count(raw,device_id),desc(n)),20)   # remove
+r7 = top_n(arrange(count(raw,device_ip),desc(n)),20)   # This one is better to be removed. 
+r8 = top_n(arrange(count(raw,device_model),desc(n)),20)
+r9 = top_n(arrange(count(raw,device_type),desc(n)),20) 
+r10 = top_n(arrange(count(raw,device_conn_type),desc(n)),20) 
+r11 = top_n(arrange(count(raw,C14),desc(n)),20)
+r12 = top_n(arrange(count(raw,C15),desc(n)),20) 
+r13 = top_n(arrange(count(raw,C16),desc(n)),20) 
+r14 = top_n(arrange(count(raw,C17),desc(n)),20)
+r15 = top_n(arrange(count(raw,C18),desc(n)),20) # no need to recode
+r16 = top_n(arrange(count(raw,C19),desc(n)),20)
+r17 = top_n(arrange(count(raw,C20),desc(n)),20)
+r18 = top_n(arrange(count(raw,C21),desc(n)),20)
+
+
+
+raw$site_id = recode(raw$site_id,'85f751fd'= '1','1fbe01fe' = '2', 'e151e245' = '3', 'd9750ee7' ='4', '5b08c53b' = '5', '856e6d3f' = '6', '5b4d2eda' = '7', 'a7853007' = '8',.default = '0')
+
+
+raw$site_domain = recode(raw$site_domain,c4e18dd6 = '1',f3845767 = '2', '7e091613' = '3', '7687a86e' ='4', '98572c79' = '5', '16a36ef3' = '6', '58a89a43' = '7', '9d54950b' = '8', .default = '0')
+
+
+raw$site_category = recode(raw$site_category,'50e219e0' = '1','f028772b' = '2', '28905ebd' = '3', '3e814130' ='4',.default = '0')
+
+raw$app_id = recode(raw$app_id,'ecad2386'= '1','92f5800b' = '2', 'e2fcccd2' = '3', 'febd1138' ='4', '7358e05e' = '5', 'a5184c22' = '6', '9c13b419' = '7', .default = '0')
+
+raw$app_domain = recode(raw$app_domain,'7801e8d9'= '1','2347f47a' = '2', 'ae637522' = '3', '5c5a694b' ='4', '82e27996' = '5', 'd9b5648e' = '6', 'b9528b13' = '7', 'b8d325c3' = '8',.default = '0')
+
+raw$app_category = recode(raw$app_category,'07d7df22'= '1','0f2161f8' = '2', 'cef3e649' = '3', '8ded1f7a' ='4', 'f95efa07' = '5', .default = '0')
+
+raw$device_id = recode(raw$device_id,'a99f214a'= '1','c357dbff' = '2', '936e92fb' = '3', '0f7c61dc' ='4',  .default = '0')
+
+raw$device_type = recode(raw$device_type,'1'= '1','0' = '2', '4' = '3', .default = '0')
+
+
+raw$device_conn_type = recode(raw$device_conn_type,'0'= '1','2' = '2', '3' = '0', .default = '0')
+
+
+raw$device_model = recode(raw$device_model,'8a4875bd'= '1','1f0bc64f' = '2', 'd787e91b' = '3', '76dc4769' ='4', 'be6db1d7' = '5', 'a0f5f879' = '6', '4ea23a13' = '7', '7abbbd5c' = '8', 'ecb851b2' = '9', 'd4897fef' = '10', '5096d134' = '11','e1eae715' = '12','711ee120' = '13','1ccc7835 ' = '14',.default = '0')
+
+raw$C14 = recode(raw$C14,'4687'= '1','21611' = '2', '21191' = '3', '21189' ='4', '19771' = '5', '19772' = '6', '16208' = '7', '20108' = '8', '19950' = '9', '15705' = '10', '15701' = '11','15699' = '12','15703' = '13','15704' = '14','15708' = '15','15707' = '16','15702' = '17','15706' = '18', '16615' = '19','8330' = '20',.default = '0')
+
+
+raw$C15 = recode(raw$C15,' 320'= '1','300' = '2', '216' = '3',.default = '0')
+
+raw$C16 = recode(raw$C16,' 50'= '1','250' = '2', '36' = '3',.default = '0')
+
+
+raw$C17 = recode(raw$C17,'1722'= '1','2424' = '2', '2227' = '3', '1800' ='4', '423' = '5', '2502' = '6', '2480' = '7', '2506' = '8', '2528' = '9', '2374' = '10', '1872' = '11','2545' = '12','1863' = '13','2299' = '14','2526' = '15','1994' = '16','2333' = '17','2665' = '18', '1993' = '19','2507' = '20',.default = '0')
+
+
+raw$C19 = recode(raw$C19,'35'= '1','39' = '2', '167' = '3', '161' ='4', '47' = '5', '1327' = '6', '297' = '7', '163' = '8', '679' = '9', '175' = '10', '935' = '11','687' = '12','41' = '13','1063' = '14','1319' = '15',.default = '0')
+
+raw$C20 = recode(raw$C20,'-1'= '1','100084' = '2', '100111' = '3', '100148' ='4', '100077' = '5', '100075' = '6', '100081' = '7', '100156' = '8', '100083' = '9', '100193' = '10', '100074' = '11','100079' = '12','100176' = '13','100189' = '14','100076' = '15',.default = '0')
+
+raw$C21 = recode(raw$C21,'23'= '1','79' = '2', '221' = '3', '71' ='4', '48' = '5', '157' = '6', '61' = '7', '32' = '8', '33' = '9', '52' = '10', '42' = '11','15' = '12','51' = '13','212' = '14','43' = '15','117' = '16','13' = '17',.default = '0')
+
+
+raw = raw[,-c(1,12,13)]
+
+raw$y = as.numeric(substr(x = as.character(raw$hour),1,2))
+raw$m = as.numeric(substr(x = as.character(raw$hour),3,4))
+raw$d = as.numeric(substr(x = as.character(raw$hour),5,6))
+raw$h = as.numeric(substr(x = as.character(raw$hour),7,8))
+raw = raw[,-c(2,22,23)]
+
+
+fwrite(raw,'rawrecorded2.csv')
+
+
+```
+
+```{r}
+raw = fread('rawrecorded2.csv')
+
+
+```
+
+
+```{r}
+test = fread('ProjectTestData.csv')
+
+test = test[,-c(1,11,12)]
+test$site_id = recode(test$site_id,'85f751fd'= '1','1fbe01fe' = '2', 'e151e245' = '3', 'd9750ee7' ='4', '5b08c53b' = '5', '856e6d3f' = '6', '5b4d2eda' = '7', 'a7853007' = '8',.default = '0')
+
+
+test$site_domain = recode(test$site_domain,c4e18dd6 = '1',f3845767 = '2', '7e091613' = '3', '7687a86e' ='4', '98572c79' = '5', '16a36ef3' = '6', '58a89a43' = '7', '9d54950b' = '8', .default = '0')
+
+
+test$site_category = recode(test$site_category,'50e219e0' = '1','f028772b' = '2', '28905ebd' = '3', '3e814130' ='4',.default = '0')
+
+test$app_id = recode(test$app_id,'ecad2386'= '1','92f5800b' = '2', 'e2fcccd2' = '3', 'febd1138' ='4', '7358e05e' = '5', 'a5184c22' = '6', '9c13b419' = '7', .default = '0')
+
+test$app_domain = recode(test$app_domain,'7801e8d9'= '1','2347f47a' = '2', 'ae637522' = '3', '5c5a694b' ='4', '82e27996' = '5', 'd9b5648e' = '6', 'b9528b13' = '7', 'b8d325c3' = '8',.default = '0')
+
+test$app_category = recode(test$app_category,'07d7df22'= '1','0f2161f8' = '2', 'cef3e649' = '3', '8ded1f7a' ='4', 'f95efa07' = '5', .default = '0')
+
+
+
+test$device_type = recode(test$device_type,'1'= '1','0' = '2', '4' = '3', .default = '0')
+
+
+test$device_conn_type = recode(test$device_conn_type,'0'= '1','2' = '2', '3' = '0', .default = '0')
+
+
+test$device_model = recode(test$device_model,'8a4875bd'= '1','1f0bc64f' = '2', 'd787e91b' = '3', '76dc4769' ='4', 'be6db1d7' = '5', 'a0f5f879' = '6', '4ea23a13' = '7', '7abbbd5c' = '8', 'ecb851b2' = '9', 'd4897fef' = '10', '5096d134' = '11','e1eae715' = '12','711ee120' = '13','1ccc7835 ' = '14',.default = '0')
+
+test$C14 = recode(test$C14,'4687'= '1','21611' = '2', '21191' = '3', '21189' ='4', '19771' = '5', '19772' = '6', '16208' = '7', '20108' = '8', '19950' = '9', '15705' = '10', '15701' = '11','15699' = '12','15703' = '13','15704' = '14','15708' = '15','15707' = '16','15702' = '17','15706' = '18', '16615' = '19','8330' = '20',.default = '0')
+
+
+test$C15 = recode(test$C15,' 320'= '1','300' = '2', '216' = '3',.default = '0')
+
+test$C16 = recode(test$C16,' 50'= '1','250' = '2', '36' = '3',.default = '0')
+
+
+test$C17 = recode(test$C17,'1722'= '1','2424' = '2', '2227' = '3', '1800' ='4', '423' = '5', '2502' = '6', '2480' = '7', '2506' = '8', '2528' = '9', '2374' = '10', '1872' = '11','2545' = '12','1863' = '13','2299' = '14','2526' = '15','1994' = '16','2333' = '17','2665' = '18', '1993' = '19','2507' = '20',.default = '0')
+
+
+test$C19 = recode(test$C19,'35'= '1','39' = '2', '167' = '3', '161' ='4', '47' = '5', '1327' = '6', '297' = '7', '163' = '8', '679' = '9', '175' = '10', '935' = '11','687' = '12','41' = '13','1063' = '14','1319' = '15',.default = '0')
+
+test$C20 = recode(test$C20,'-1'= '1','100084' = '2', '100111' = '3', '100148' ='4', '100077' = '5', '100075' = '6', '100081' = '7', '100156' = '8', '100083' = '9', '100193' = '10', '100074' = '11','100079' = '12','100176' = '13','100189' = '14','100076' = '15',.default = '0')
+
+test$C21 = recode(test$C21,'23'= '1','79' = '2', '221' = '3', '71' ='4', '48' = '5', '157' = '6', '61' = '7', '32' = '8', '33' = '9', '52' = '10', '42' = '11','15' = '12','51' = '13','212' = '14','43' = '15','117' = '16','13' = '17',.default = '0')
+
+
+test$y = as.numeric(substr(x = as.character(test$hour),1,2))
+test$m = as.numeric(substr(x = as.character(test$hour),3,4))
+test$d = as.numeric(substr(x = as.character(test$hour),5,6))
+test$h = as.numeric(substr(x = as.character(test$hour),7,8))
+
+test = test[,-c(1,21,22)]
+
+fwrite(test,'testrecorded2.csv')
+
+
+
+
+
+```
+End of data cleaning
+
+
+Subsetting and save data. 
+```{r}
+train = fread('rawrecorded2.csv')
+sample_order = sample(1:nrow(train),nrow(train),replace =  F)
+
+for (i in 1:319)
+{
+  sample = train[sample_order[((i-1)*100000+1):(i*100000)],]
+  filename = paste('trainsubset/part',as.character(i),'.csv',sep='')
+  fwrite(as.list(sample),filename)
+}
+sample = train[sample_order[(319*100000+1):nrow(train)],]
+filename = paste('trainsubset/part',320,'.csv',sep='')
+fwrite(as.list(sample),filename)
+
+
+
+
+
+
+```
+
+Subsetting the training data to 1 million rows each. 
+```{r}
+
+
+
+train_big = as.data.frame(matrix(,0,22))
+
+for (i in 1:320)
+{
+  
+  filename = paste('trainsubset/part',as.character(i),'.csv',sep='')
+  train_i = fread(filename)
+  train_i = as.data.frame(lapply(train_i, factor))
+  train_i$click = as.numeric(as.character(train_i$click))
+  train_big = rbind(train_big, train_i)
+  if (i %% 10 ==0){
+    wfilename = paste('E:/ML/Milliontrain/part',as.character(i/10),'.csv',sep = '')
+    fwrite(train_big,wfilename)
+    train_big = as.data.frame(matrix(,0,22))
+  }
+  
+}
+
+
+
+
+```
+
+
+
+Subsetting and save test data
+```{r}
+test = fread('c:/users/cyma9/dropbox/IntroML1/PJ/testrecorded.csv')
+
+for (i in 1:13)
+{
+  sample = test[((i-1)*1000000+1):(i*1000000),]
+  filename = paste('E:/ML/milliontest/part',as.character(i),'.csv',sep='')
+  fwrite(as.list(sample),filename)
+}
+
+sample = test[(13*1000000+1):nrow(test),]
+filename = paste('E:/ML/milliontest/part',14,'.csv',sep='')
+fwrite(as.list(sample),filename)
+```
+
+
+# Logloss Function
+
+```{r}
+LogLossBinary = function(actual, predicted, eps = 1e-15) {
+   predicted = pmin(pmax(predicted, eps), 1-eps)
+   - (sum(actual * log(predicted) + (1 - actual) * log(1 - predicted))) / length(actual)
+ }
+```
+
+
+
+Try logsitic regression. 
+```{r}
+
+sample_data = fread('trainsubset/part3.csv',stringsAsFactors = TRUE)
+sample_data = as.data.frame(lapply(sample_data, factor))
+sample_data$click = as.numeric(as.character(sample_data$click))
+
+
+
+
+
+
+train = fread('E:/ML/Milliontrain/part1.csv')
+train = as.data.frame(lapply(train, factor))
+train$click = as.numeric(as.character(train$click))
+train_new = dummy.data.frame(train)
+
+validation = fread('E:/ML/trainsubset/part319.csv')
+validation = as.data.frame(lapply(validation, factor))
+validation$click = as.numeric(as.character(validation$click))
+validation_new = dummy.data.frame(validation)
+
+
+#sample_data_factored = cbind(sample_data_cut,as.factor(sample_data$site_category),as.factor(sample_data$app_category))
+
+#sample_training = sample_data_factored[sample_set,]
+#sample_validating = sample_data_factored[-sample_set,]
+#sample_training = as.data.frame(apply(sample_data_factored[sample_set],2,as.numeric))
+#sample_validating = as.data.frame(apply(sample_data_factored[-sample_set],2,as.numeric))
+
+
+logistic = glm(click~.,data = sample_data , family = binomial(link = 'logit'))
+pred_log = predict(logistic, newdata = validation, type = 'response')
+system.time( glm(click~.,data = sample_data, family = binomial(link = 'logit')))
+
+system.time(predict(logistic, newdata = validation, type = 'response'))
+
+
+require(speedglm)
+
+log_speed = speedglm(click~., data = sample_data, family = binomial(link = 'logit'))
+  
+  
+system.time(speedglm(click~., data = sample_data, family = binomial(link = 'logit')))
+pred_speedlog = predict(log_speed, newdata = validation, type = 'response')
+LogLossBinary(validation$click,pred_speedlog)
+
+
+```
+
+
+
+
+
+
+Forward selection for logistic regression.
+```{r}
+
+
+parameters = colnames(sample_data)
+selection = list()
+num_para = ncol(sample_data) - 1
+performance = 1e10
+for (i in c(1:num_para))
+{
+  selection_best = selection
+  performance_best = performance
+  for (j in c(1:num_para))
+  {
+    selection_try = selection
+    if (parameters[j + 1] %in% selection == FALSE)
+    {
+      selection_try = append(selection_try,parameters[j + 1])
+      formula_try = as.formula(paste('click~',paste(selection_try,collapse = '+')))
+      model_try= speedglm(formula_try,data = sample_data, family = binomial(link = 'logit'))    
+      prob_try = predict(model_try, newdata = validation,type = 'response')
+      performance_try = LogLossBinary(validation$click,prob_try)
+      if (performance_try < performance_best)
+      {
+        performance_best = performance_try
+        selection_best = selection_try
+      }
+    }
+  }
+  if (performance_best < performance)
+  {
+    performance = performance_best
+    selection = selection_best
+  }
+  else
+    selection = selection_best
+}
+
+print(performance)
+selection = c(11,12)
+
+```
+
+
+Try random forest in R 
+```{r}
+require(randomForest)
+set.seed(1)
+rf = randomForest(click~.,data = sample_data, mtry = 8, importance = TRUE)
+rf_result = as.data.frame(rf$importance)
+rf_result$features = rownames(rf_result)
+rf_pred = predict(rf, newdata = validation,type = 'response')
+LogLossBinary(validation$click,rf_pred)
+rf_result_sorted = arrange(rf_result, desc(IncNodePurity))
+
+
+
+```
+
+
+
+Try SVM in R . Really slow. 
+```{r}
+require(parallelSVM)
+
+
+svm.model = svm(click~., data = sample_training[,-c(21,22)],kernel = 'linear', cost = 0.01, gamma = 1)
+svm_result <- predict(svm.model, validation[,-c(21,22)], type = 'response')
+LogLossBinary(as.numeric(as.character(validation$click)),svm_result)
+
+pSVM.model = parallelSVM(click~., data = sample_training[,-c(21,22)],kernel = 'linear',numberCores = 4, probability = TRUE, gamma=0.1, cost = 10)
+pSVM.pred = predict(pSVM.model, validation[,-c(21,22)], type = 'response')
+LogLossBinary(as.numeric(as.character(validation$click)),pSVM.pred)
+```
+
+
+
+Try Neural Network in R 
+```{r}
+
+require(nnet)
+Sigma = var(sample_data[,-1])
+SDecomp <- eigen(Sigma)
+PCompTrain50d <- sample_data[,-1]%*%SDecomp$vectors
+dim(PCompTrain50d)
+ReconTrain50d <- t(SDecomp$vectors[,1:50]%*%t(PCompTrain50d))
+
+train_new = dummy.data.frame(sample_data)
+
+flags = data.frame(Reduce(cbind, 
+     lapply(levels(d$purpose), function(x){(d$purpose == x)*1})
+))
+
+X = train_new[,-1]
+Y <- class.ind(train_new[,1])
+
+out <- nnet(x=X,y=Y,size=20,softmax=F,MaxNWts=1000000,maxit=1000)
+
+
+PredProbs <- predict(out,newdata=validation_new[,-1],type="raw")
+
+
+
+
+
+
+
+
+```
+
+
+Try package speedglm to faster train logistic regreesion. 
+```{r}
+
+
+
+result = as.data.frame(matrix(,100000,0))
+
+
+
+log_big = speedglm(click~., data = train_new, family = binomial(link = 'logit'))
+pred_big = predict(log_big, newdata = validation_new, type = 'response')
+LogLossBinary(validation_new$click,pred_big)
+
+fwrite(as.list(pred_big),'predicted_319.csv')
+
+
+validation_small = fread('c:/users/cyma9/Dropbox/IntroML1/PJ/trainsubset/part2.csv')
+validation_small = as.data.frame(lapply(validation_small, factor))
+validation_small$click = as.numeric(as.character(validation_small$click))
+validation_small_new = dummy.data.frame(validation_small)
+
+
+
+
+
+
+```
+
+
+
+
+Do final prediction for logistic regression based on 1 million traning data. 
+```{r}
+
+
+
+for ( i in 1:14)
+{
+  filename_read = paste('E:/ML/milliontest/part',as.character(i),'.csv',sep='')
+  filename_write = paste('E:/ML/prediction/part',as.character(i),'.csv',sep='')
+  validation_pred = fread(filename_read)
+  validation_pred = as.data.frame(lapply(validation_pred, factor))
+  validation_pred_new = dummy.data.frame(validation_pred)
+  prediction = predict(log_big, newdata = validation_pred_new, type = 'response')
+  fwrite(as.list(prediction), filename_write)
+  
+  print(i)
+
+}
+
+
+```
+
+
+Turn categorical into dummies and save for further use. 
+```{r}
+for (i in 1:14)
+{
+  
+  filename = paste('E:/ML/milliontest/part',as.character(i),'.csv',sep='')
+  numerical = fread(filename)
+  numerical = numerical[,-20]
+  numerical = as.data.frame(lapply(numerical, factor))
+  dummy = dummy.data.frame(numerical)
+  filename_write = paste('E:/ML/testdummy/part',as.character(i),'.csv',sep='')
+  fwrite(dummy, filename_write)
+  print(i)
+}
+
+
+for (i in 1:32)
+{
+  filename = paste('E:/ML/Milliontrain/part',as.character(i),'.csv',sep='')
+  numerical = fread(filename)
+  numerical = numerical[,-21]
+  numerical = as.data.frame(lapply(numerical, factor))
+  numerical$click = as.numeric(as.character(numerical$click))
+
+  dummy = dummy.data.frame(numerical)
+  filename_write = paste('E:/ML/traindummy/part',as.character(i),'.csv',sep='')
+  fwrite(dummy, filename_write)
+  print(i)
+}
+
+```
+

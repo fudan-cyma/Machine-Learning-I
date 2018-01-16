@@ -1,0 +1,281 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+plot(cars)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+```{r}
+library(randomForest)
+
+
+setwd(dir = "C:\\Users\\Ryan7\\Downloads\\Milliontrain")
+trainingset <- read.csv("C:\\Users\\Ryan7\\Downloads\\Milliontrain\\part1.csv", sep = ",", header = T)
+#dim(trainingset)
+testset <- read.csv("C:\\Users\\Ryan7\\Downloads\\trainsubset\\part319.csv", sep = ",", header = T)
+trainingset2 <- read.csv("C:\\Users\\Ryan7\\Downloads\\Milliontrain\\part2.csv", sep = ",", header = T)
+trainingset3 <- read.csv("C:\\Users\\Ryan7\\Downloads\\Milliontrain\\part3.csv", sep = ",", header = T)
+trainingset4 <- read.csv("C:\\Users\\Ryan7\\Downloads\\Milliontrain\\part4.csv", sep = ",", header = T)
+trainingset5 <- read.csv("C:\\Users\\Ryan7\\Downloads\\Milliontrain\\part5.csv", sep = ",", header = T)
+
+training_5million <- rbind(trainingset,trainingset2)
+
+
+training_5million = as.data.frame(lapply(training_5million, factor))
+training_5million$click = as.numeric(as.character(training_5million$click))
+
+testset = as.data.frame(lapply(testset, factor))
+testset$click = as.numeric(as.character(testset$click))
+
+class(trainingset$click)
+class(trainingset$C1)
+
+
+#preload the function we use, logloss
+LogLossBinary = function(actual, predicted, eps = 1e-15) {
+   predicted = pmin(pmax(predicted, eps), 1-eps)
+   - (sum(actual * log(predicted) + (1 - actual) * log(1 - predicted))) / length(actual)
+}
+
+
+#use random forest to do prediction of small set of 100,000
+outcome_rf <- randomForest(click ~ .,data=trainingset, mtry=1,ntree=500,maxnodes=50)
+predicted_rf <- predict(outcome_rf, testset)
+dim(predicted_rf)
+
+system.time(randomForest(click ~ .,data=trainingset, mtry=1,ntree=500,maxnodes=50))
+
+#apply the logloss function on testset
+LogLossBinary(testset$click,predicted_rf)
+
+
+
+log_outcome <-glm(training_5million$click~.,data = training_5million)
+
+
+```
+```{r}
+#lasso regression
+library(glmnet)
+library(ISLR)
+
+TrainX <-model.matrix(trainingset$click~.,trainingset[,c(2:22)])
+TrainY <-training_5million[,1]
+ValX <- model.matrix(testset$click~.,testset[,c(2:22)])
+ValY <- testset[,1]
+
+x_train_d <- model.matrix(train_data$click ~ ., train_data[,c(2:22)])
+x_val_d <- model.matrix(val_data$click ~ ., val_data[,c(2:22)])
+
+
+
+dim(TrainX)
+class(TrainY)
+
+outcome_lasso = cv.glmnet(TrainX, TrainY, alpha  = 1)
+predicted_lasso = predict(outcome_lasso, ValX)
+#head(predicted_lasso)
+
+LogLossBinary(testset$click,predicted_lasso)
+
+system.time(cv.glmnet(TrainX, TrainY, alpha  = 1))
+
+
+#ridge regression
+
+outcome_ridge =cv.glmnet(TrainX,TrainY, alpha = 0)
+predicted_ridge = predict(outcome_ridge,ValX)
+#head(predicted_ridge)
+
+LogLossBinary(testset$click, predicted_ridge)
+
+system.time(cv.glmnet(TrainX,TrainY, alpha = 0))
+
+```
+```{r}
+
+
+```
+
+
+
+
+```{r}
+#svm
+library(e1071)
+library(caret)
+
+#for the e1071 package
+#outcome_svm <-svm(trainingset$click~ ., data = trainingset)
+#outcome_svm1 <-svm(TrainX,TrainY)
+
+
+#for the caret package
+#trctrl <- trainControl(method = "repeatedcv")
+#svm_linear <-train(trainingset$click~ ., data = trainingset, method ="svmLinear", trContrl = trctrl)
+
+#I couldn't get outcomes in 15 minutes, so I assume that it requires much more time to run svm than other regressions
+
+
+
+```
+```{r}
+# try random forest with larger dataset
+
+trainingset_1 <- read.csv("C:\\Users\\Ryan7\\Downloads\\trainsubset\\part3.csv", sep = ",", header = T)
+trainingset_2 <- read.csv("C:\\Users\\Ryan7\\Downloads\\trainsubset\\part4.csv", sep = ",", header = T)
+trainingset_3 <- read.csv("C:\\Users\\Ryan7\\Downloads\\trainsubset\\part5.csv", sep = ",", header = T)
+trainingset_4 <- read.csv("C:\\Users\\Ryan7\\Downloads\\trainsubset\\part6.csv", sep = ",", header = T)
+trainingset_5 <- read.csv("C:\\Users\\Ryan7\\Downloads\\trainsubset\\part7.csv", sep = ",", header = T)
+trainingset_6 <- read.csv("C:\\Users\\Ryan7\\Downloads\\trainsubset\\part8.csv", sep = ",", header = T)
+trainingset_7 <- read.csv("C:\\Users\\Ryan7\\Downloads\\trainsubset\\part9.csv", sep = ",", header = T)
+trainingset_8 <- read.csv("C:\\Users\\Ryan7\\Downloads\\trainsubset\\part10.csv", sep = ",", header = T)
+trainingset_9 <- read.csv("C:\\Users\\Ryan7\\Downloads\\trainsubset\\part11.csv", sep = ",", header = T)
+trainingset_10<- read.csv("C:\\Users\\Ryan7\\Downloads\\trainsubset\\part12.csv", sep = ",", header = T)
+
+
+trainingset_1million <- rbind(trainingset_1,trainingset_2,trainingset_3,trainingset_4,trainingset_5,trainingset_6,trainingset_7,trainingset_8,trainingset_9,trainingset_10)
+
+trainingset_1million = as.data.frame(lapply(trainingset_1million, factor))
+trainingset_1million$click = as.numeric(as.character(trainingset_1million$click))
+
+
+#use random forest to do prediction of 1 million
+outcome_rf_million <- randomForest(click ~ .,data=trainingset_1million, mtry=1,ntree=500,maxnodes=50)
+predicted_rf_million <- predict(outcome_rf_million, testset)
+
+
+#apply the logloss function on testset
+LogLossBinary(testset$click,predicted_rf_million)
+
+
+
+```
+```{r}
+#try second million for random forest
+
+
+
+trainingset_11 <- read.csv("C:\\Users\\Ryan7\\Downloads\\trainsubset\\part13.csv", sep = ",", header = T)
+trainingset_12 <- read.csv("C:\\Users\\Ryan7\\Downloads\\trainsubset\\part14.csv", sep = ",", header = T)
+trainingset_13 <- read.csv("C:\\Users\\Ryan7\\Downloads\\trainsubset\\part15.csv", sep = ",", header = T)
+trainingset_14 <- read.csv("C:\\Users\\Ryan7\\Downloads\\trainsubset\\part16.csv", sep = ",", header = T)
+trainingset_15 <- read.csv("C:\\Users\\Ryan7\\Downloads\\trainsubset\\part17.csv", sep = ",", header = T)
+trainingset_16 <- read.csv("C:\\Users\\Ryan7\\Downloads\\trainsubset\\part18.csv", sep = ",", header = T)
+trainingset_17 <- read.csv("C:\\Users\\Ryan7\\Downloads\\trainsubset\\part19.csv", sep = ",", header = T)
+trainingset_18 <- read.csv("C:\\Users\\Ryan7\\Downloads\\trainsubset\\part20.csv", sep = ",", header = T)
+trainingset_19 <- read.csv("C:\\Users\\Ryan7\\Downloads\\trainsubset\\part21.csv", sep = ",", header = T)
+trainingset_20 <- read.csv("C:\\Users\\Ryan7\\Downloads\\trainsubset\\part22.csv", sep = ",", header = T)
+
+
+trainingset_million_2 <- rbind(trainingset_11,trainingset_12,trainingset_13,trainingset_14,trainingset_15,trainingset_16,trainingset_17,trainingset_18,trainingset_19,trainingset_20)
+
+trainingset_million_2 = as.data.frame(lapply(trainingset_million_2, factor))
+trainingset_million_2$click = as.numeric(as.character(trainingset_million_2$click))
+
+trainingset = as.data.frame(lapply(trainingset, factor))
+trainingset$click = as.numeric(as.character(trainingset$click))
+
+
+#use random forest to do prediction of 1 million
+outcome_rf_million_2 <- randomForest(click ~ .,data=trainingset,ntree=500,maxnodes=70)
+predicted_rf_million_2 <- predict(outcome_rf_million_2, testset)
+
+
+#apply the logloss function on testset
+LogLossBinary(testset$click,predicted_rf_million_2)
+
+
+
+# 2 millions
+trainingset_2million = rbind(trainingset_million_2,trainingset_1million)
+
+outcome_rf_2million <- randomForest(click ~ .,data=trainingset_2million, mtry=1,ntree=500,maxnodes=50)
+predicted_rf_2million <- predict(outcome_rf_2million, testset)
+
+
+#apply the logloss function on testset
+LogLossBinary(testset$click,predicted_rf_2million)
+
+
+
+```
+```{r}
+#tree
+if(!require("tree")) { install.packages("tree"); require("tree") }
+
+
+tc <- tree.control(nrow(trainingset),minsize=10,mincut=5,mindev=0.01)
+out <- tree(click ~ .,data=trainingset,control=tc)
+predicted_tree <-predict(out, testset)
+
+LogLossBinary(testset$click,predicted_tree)
+
+system.time(tree(click ~ .,data=trainingset,control=tc))
+
+tc1 <- tree.control(nrow(data1),minsize=10,mincut=5,mindev=0.01)
+out1 <- tree(click ~ .,data=data1,control=tc1)
+predicted_tree1 <-predict(out1, testset)
+
+LogLossBinary(testset$click,predicted_tree1)
+
+
+tc2 <- tree.control(nrow(data2),minsize=10,mincut=5,mindev=0.01)
+out2 <- tree(click ~ .,data=data2,control=tc2)
+predicted_tree2 <-predict(out2, testset)
+
+LogLossBinary(testset$click,predicted_tree2)
+
+
+
+
+```
+
+
+```{r}
+data1<- read.csv("C:\\Users\\ryan7\\Downloads\\Milliontrain\\part1.csv")
+data1 = as.data.frame(lapply(data1, factor))
+data1$click = as.numeric(as.character(data1$click))
+
+
+library(leaps)
+
+BigFm <- click~.
+
+out <- regsubsets(BigFm,data=data1,nvmax=18)
+(summary.out <- summary(out))
+
+bestind <- which.min(summary.out$cp) # cp for lm models is the AIC
+BestVars <- colnames(summary.out$which)[summary.out$which[bestind,]]
+BestFm <- paste(as.character(BigFm)[2],paste(BestVars[-1],collapse=" + "),sep=" ~ ")
+out.lm <- lm(BestFm,data=data1)
+summary(out.lm)
+AIC(out.lm)
+
+
+
+
+```
+
+```{r}
+data2<-data1[,-c(9,16,20)]
+
+
+```
+
+
+
+
+
+
+
+
